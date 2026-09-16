@@ -1,5 +1,5 @@
-const firebaseConfig = {
-  apiKey: "NEW_API_KEY_FROM_FIREBASE",
+export const firebaseConfig = {
+  apiKey: "AIzaSyAY1I6tDTqEVW_q4rki164tMIBcF37OT4s",
   authDomain: "agronexus-bdf8b.firebaseapp.com",
   databaseURL: "https://agronexus-bdf8b-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "agronexus-bdf8b",
