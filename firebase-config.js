@@ -1,7 +1,7 @@
 export const firebaseConfig = {
-  apiKey: "AIzaSYAY1I6tDTqEVW_q4rki164tMIBcF37OT4s",
+  apiKey: "AIzaSyAY1I6tDTqEVW_q4rki164tMIBcF37OT4s",
   authDomain: "agronexus-bdf8b.firebaseapp.com",
-  databaseURL: "https://agronexus-bdf8b-default-rtdb.firebaseio.com",
+  databaseURL: "https://agronexus-bdf8b-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "agronexus-bdf8b",
   storageBucket: "agronexus-bdf8b.firebasestorage.app",
   messagingSenderId: "501445534751",
