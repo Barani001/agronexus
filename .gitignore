@@ -1,0 +1,17 @@
+# Local Firebase web configuration
+frontend/firebase-config.js
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Node / build artifacts
+node_modules/
+dist/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/

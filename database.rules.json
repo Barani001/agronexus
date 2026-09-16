@@ -1,0 +1,43 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".validate": "newData.hasChildren(['name','phone','role','createdAt']) && (newData.child('role').val() === 'farmer' || newData.child('role').val() === 'buyer' || newData.child('role').val() === 'fpo' || (newData.child('role').val() === 'admin' && root.child('users').child(auth.uid).child('role').val() === 'admin'))"
+      }
+    },
+    "marketPrices": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "buyerRequests": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && newData.child('buyerId').val() === auth.uid) || (data.exists() && data.child('buyerId').val() === auth.uid))"
+      }
+    },
+    "cropLots": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && newData.child('ownerId').val() === auth.uid) || (data.exists() && data.child('ownerId').val() === auth.uid))"
+      }
+    },
+    "offers": {
+      ".read": "auth != null",
+      "$lotId": {
+        "$offerId": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && newData.child('buyerId').val() === auth.uid) || (data.exists() && data.child('buyerId').val() === auth.uid) || root.child('cropLots').child($lotId).child('ownerId').val() === auth.uid)"
+        }
+      }
+    },
+    "orders": {
+      "$id": {
+        ".read": "auth != null && (data.child('farmerId').val() === auth.uid || data.child('buyerId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && (newData.child('farmerId').val() === auth.uid || newData.child('buyerId').val() === auth.uid)) || (data.exists() && (data.child('farmerId').val() === auth.uid || data.child('buyerId').val() === auth.uid)))"
+      }
+    }
+  }
+}
