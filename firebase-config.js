@@ -1,6 +1,3 @@
-// AGRONEXUS Firebase Web App configuration
-// Firebase Web config values are intended for client-side use.
-// Protect your data with Firebase Authentication and Realtime Database Security Rules.
 export const firebaseConfig = {
   apiKey: "AIzaSYAY1I6tDTqEVW_q4rki164tMIBcF37OT4s",
   authDomain: "agronexus-bdf8b.firebaseapp.com",
