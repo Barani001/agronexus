@@ -459,6 +459,18 @@
         padding: 25px 18px;
       }
     }
+
+    /* LANGUAGE SWITCHER */
+    .language-wrap{position:relative;display:inline-flex;align-items:center;margin-left:8px}
+    .language-select{appearance:none;-webkit-appearance:none;border:1px solid #cfd9d0;background:#fff;color:#18231b;border-radius:12px;padding:9px 34px 9px 12px;font-weight:700;font-size:13px;cursor:pointer;outline:none;min-width:150px}
+    .language-wrap::after{content:'▾';position:absolute;right:12px;pointer-events:none;color:#5d6c61}
+    #google_translate_element{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}
+    .goog-te-banner-frame.skiptranslate,body>.skiptranslate{display:none!important}
+    body{top:0!important}
+    .goog-logo-link,.goog-te-gadget span{display:none!important}
+    .goog-te-gadget{font-size:0!important}
+    @media(max-width:900px){.language-wrap{width:100%;margin:6px 0}.language-select{width:100%}}
+
   </style>
 </head>
 
@@ -597,6 +609,34 @@
         <button id="logoutBtn" class="nav-btn logout">
           Logout
         </button>
+
+        <div class="language-wrap" title="Change language">
+          <select id="languageSelector" class="language-select" aria-label="Change language">
+            <option value="en">🌐 English</option>
+            <option value="as">অসমীয়া (Assamese)</option>
+            <option value="bn">বাংলা (Bengali)</option>
+            <option value="brx">बड़ो (Bodo)</option>
+            <option value="doi">डोगरी (Dogri)</option>
+            <option value="gu">ગુજરાતી (Gujarati)</option>
+            <option value="hi">हिन्दी (Hindi)</option>
+            <option value="kn">ಕನ್ನಡ (Kannada)</option>
+            <option value="ks">कॉशुर / کٲشُر (Kashmiri)</option>
+            <option value="kok">कोंकणी (Konkani)</option>
+            <option value="mai">मैथिली (Maithili)</option>
+            <option value="ml">മലയാളം (Malayalam)</option>
+            <option value="mni-Mtei">মৈতৈলোন্ (Manipuri)</option>
+            <option value="mr">मराठी (Marathi)</option>
+            <option value="ne">नेपाली (Nepali)</option>
+            <option value="or">ଓଡ଼ିଆ (Odia)</option>
+            <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+            <option value="sa">संस्कृतम् (Sanskrit)</option>
+            <option value="sat">ᱥᱟᱱᱛᱟᱲᱤ (Santali)</option>
+            <option value="sd">سنڌي (Sindhi)</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="ur">اردو (Urdu)</option>
+          </select>
+        </div>
 
       </div>
 
@@ -994,6 +1034,12 @@
 <!-- =========================================================
      FIREBASE + APPLICATION JAVASCRIPT
 ========================================================= -->
+
+<div id="google_translate_element" aria-hidden="true"></div>
+<script>
+window.googleTranslateElementInit=function(){new google.translate.TranslateElement({pageLanguage:'en',autoDisplay:false},'google_translate_element');};
+</script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
 <script type="module">
 
@@ -2832,6 +2878,9 @@ onAuthStateChanged(
 
         await ensureProfile(user);
 
+        // Seed market data only after the user is authenticated.
+        await seedSampleMarkets();
+
         startRealtimeListeners();
 
         updateAdminVisibility();
@@ -3030,6 +3079,29 @@ async function seedSampleMarkets() {
 
 }
 
+
+/* =========================================================
+   LANGUAGE SWITCHER
+========================================================= */
+function setTranslateCookie(lang){
+  const value=lang==='en'?'/en/en':'/en/'+lang;
+  document.cookie=`googtrans=${value};path=/;max-age=31536000;SameSite=Lax`;
+}
+function readTranslateLanguage(){
+  const m=document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/);
+  if(!m)return'en';
+  try{return decodeURIComponent(m[1]).split('/')[2]||'en';}catch{return'en';}
+}
+function applyGoogleLanguage(lang){
+  const apply=()=>{const combo=document.querySelector('.goog-te-combo');if(!combo)return false;combo.value=lang;combo.dispatchEvent(new Event('change'));return true;};
+  if(apply())return;
+  let tries=0;const timer=setInterval(()=>{if(apply()||++tries>=20)clearInterval(timer);},250);
+}
+const languageSelector=document.getElementById('languageSelector');
+if(languageSelector){
+  languageSelector.value=readTranslateLanguage();
+  languageSelector.addEventListener('change',e=>{const lang=e.target.value;setTranslateCookie(lang);applyGoogleLanguage(lang);});
+}
 
 /* =========================================================
    PROFILE CHANGE → ADMIN
