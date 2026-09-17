@@ -695,49 +695,49 @@
       <div class="section">
 
         <h3 class="section-title">
-          AI Selling Advisor
+          AI Selling Advisor 2.0
         </h3>
 
         <div class="card">
-
           <div class="grid">
-
             <div>
               <label>Crop</label>
               <input id="adviceCrop" placeholder="e.g. Onion">
             </div>
-
             <div>
               <label>Quantity (kg)</label>
-              <input id="adviceQty" type="number" placeholder="1000">
+              <input id="adviceQty" type="number" min="1" placeholder="1000">
             </div>
-
             <div>
               <label>Your Location</label>
               <input id="adviceLocation" placeholder="Nashik">
             </div>
-
             <div>
               <label>Transport Cost ₹</label>
-              <input id="adviceTransport" type="number" placeholder="1500">
+              <input id="adviceTransport" type="number" min="0" placeholder="1500">
             </div>
-
+            <div>
+              <label>Loading / Unloading ₹</label>
+              <input id="adviceHandling" type="number" min="0" placeholder="500">
+            </div>
+            <div>
+              <label>Storage Cost ₹</label>
+              <input id="adviceStorage" type="number" min="0" placeholder="300">
+            </div>
+            <div>
+              <label>Packaging / Other ₹</label>
+              <input id="adviceOther" type="number" min="0" placeholder="200">
+            </div>
           </div>
 
           <div class="actions">
-
             <button id="calculateAdvice" class="primary-btn" style="width:auto">
               Get AI Selling Advice
             </button>
-
           </div>
 
           <div id="adviceResult" class="section"></div>
-
         </div>
-
-      </div>
-
     </section>
 
 
@@ -2123,184 +2123,228 @@ function renderOrders() {
 
 
 /* =========================================================
-   AI SELLING ADVISOR
+   AI SELLING ADVISOR 2.0
+   Explainable decision-support using available market records.
 ========================================================= */
 
-$("calculateAdvice").addEventListener(
-  "click",
-  () => {
+function numValue(id) {
+  return Math.max(0, Number($(id)?.value || 0));
+}
 
-    const crop =
-      $("adviceCrop").value
-        .trim();
+function buildPriceHistory(crop) {
+  return Object.values(marketData)
+    .filter(item => String(item.crop || '').toLowerCase() === crop.toLowerCase())
+    .map(item => ({
+      date: String(item.date || ''),
+      price: Number(item.modalPrice || 0),
+      arrivals: Number(item.arrivals || 0),
+      market: String(item.market || 'Market'),
+      district: String(item.district || '')
+    }))
+    .filter(x => x.price > 0)
+    .sort((a,b) => a.date.localeCompare(b.date));
+}
 
-    const quantity =
-      Number($("adviceQty").value || 0);
+function estimateTrend(history) {
+  if (history.length < 2) {
+    return { direction: 'Stable / insufficient history', pct: 0 };
+  }
+  const recent = history.slice(-Math.min(3, history.length));
+  const first = recent[0].price;
+  const last = recent[recent.length - 1].price;
+  const pct = first ? ((last - first) / first) * 100 : 0;
+  return {
+    direction: pct > 2 ? 'Rising' : pct < -2 ? 'Falling' : 'Stable',
+    pct
+  };
+}
 
-    const location =
-      $("adviceLocation").value
-        .trim();
+function forecastPrices(currentPrice, trend, arrivals) {
+  // Conservative explainable estimate, not a guaranteed prediction.
+  const arrivalFactor = arrivals > 3000 ? -0.015 : arrivals > 1500 ? -0.005 : 0.005;
+  const dailyRate = Math.max(-0.025, Math.min(0.025, (trend.pct / 100) / 7 + arrivalFactor));
+  return [7, 15, 30].map(days => ({
+    days,
+    value: Math.max(0, Math.round(currentPrice * Math.pow(1 + dailyRate, days)))
+  }));
+}
 
-    const transport =
-      Number($("adviceTransport").value || 0);
+function marketScore(item, quantity, location) {
+  const modal = Number(item.modalPrice || 0);
+  const max = Number(item.maxPrice || 0);
+  const arrivals = Number(item.arrivals || 0);
+  let score = 0;
+  score += Math.min(50, modal > 0 ? 35 + Math.min(15, ((max - modal) / Math.max(modal,1)) * 100) : 0);
+  if (arrivals > 0) score += arrivals < 1500 ? 15 : arrivals < 3000 ? 10 : 5;
+  if (location && String(item.district || '').toLowerCase().includes(location.toLowerCase())) score += 10;
+  score += Math.min(20, quantity > 1000 ? 20 : quantity > 500 ? 15 : 10);
+  return Math.round(Math.min(100, score));
+}
 
-    if (!crop || !quantity) {
+function recommendationFromScores(waitGain, storageCost, currentNet) {
+  if (currentNet <= 0) {
+    return {
+      action: 'REVIEW COSTS',
+      icon: '⚠️',
+      reason: 'Current estimated net realization is not positive. Compare buyers, transport and storage before selling.'
+    };
+  }
+  if (waitGain > storageCost * 1.15 && waitGain > currentNet * 0.03) {
+    return {
+      action: 'WAIT',
+      icon: '⏳',
+      reason: 'Estimated price gain is higher than the assumed storage cost.'
+    };
+  }
+  if (storageCost > waitGain) {
+    return {
+      action: 'SELL NOW',
+      icon: '🟢',
+      reason: 'Estimated additional price gain does not currently compensate for storage cost.'
+    };
+  }
+  return {
+    action: 'SELL NOW / COMPARE',
+    icon: '🟢',
+    reason: 'Current net realization is positive. Compare buyer offers and logistics before confirming the deal.'
+  };
+}
 
-      $("adviceResult").innerHTML = `
-        <div class="card">
-          Enter crop and quantity first.
-        </div>
-      `;
+$("calculateAdvice").addEventListener("click", () => {
+  const crop = $("adviceCrop").value.trim();
+  const quantity = numValue("adviceQty");
+  const location = $("adviceLocation").value.trim();
+  const transport = numValue("adviceTransport");
+  const handling = numValue("adviceHandling");
+  const storage = numValue("adviceStorage");
+  const other = numValue("adviceOther");
 
-      return;
-    }
+  if (!crop || quantity <= 0) {
+    $("adviceResult").innerHTML = `<div class="card">Enter crop and valid quantity first.</div>`;
+    return;
+  }
 
+  const matching = Object.entries(marketData)
+    .filter(([id, item]) => String(item.crop || '').toLowerCase().includes(crop.toLowerCase()));
 
-    const matching =
-      Object.entries(marketData)
-        .filter(([id, item]) =>
-          String(item.crop || "")
-            .toLowerCase()
-            .includes(crop.toLowerCase())
-        );
-
-
-    let best = null;
-
-
-    for (const [id, item] of matching) {
-
-      const modal =
-        Number(item.modalPrice || 0);
-
-      const gross =
-        modal * quantity / 100;
-
-      const net =
-        gross - transport;
-
-      if (!best || net > best.net) {
-
-        best = {
-
-          market:
-            item.market || "Market",
-
-          district:
-            item.district || "",
-
-          modal,
-
-          gross,
-
-          net
-
-        };
-
-      }
-
-    }
-
-
-    if (!best) {
-
-      const demoPrice = 2500;
-
-      const gross =
-        demoPrice * quantity / 100;
-
-      const net =
-        gross - transport;
-
-      best = {
-
-        market: "Available market data needed",
-
-        district: location,
-
-        modal: demoPrice,
-
-        gross,
-
-        net
-
-      };
-
-    }
-
-
-    const recommendation =
-      best.net > 0
-        ? "Consider selling after comparing buyer offers and logistics."
-        : "Review quantity, transport and storage options before selling.";
-
-
+  if (!matching.length) {
     $("adviceResult").innerHTML = `
-
       <div class="card">
+        <h3>No market data found</h3>
+        <p class="muted">Add market records for this crop before using the forecast and recommendation.</p>
+      </div>`;
+    return;
+  }
 
-        <div class="row">
+  const ranked = matching.map(([id, item]) => {
+    const modal = Number(item.modalPrice || 0);
+    const gross = modal * quantity / 100;
+    const totalCosts = transport + handling + storage + other;
+    const net = gross - totalCosts;
+    return {
+      id, item, modal, gross, totalCosts, net,
+      score: marketScore(item, quantity, location)
+    };
+  }).sort((a,b) => b.net - a.net);
 
-          <h3>AI Recommendation</h3>
+  const best = ranked[0];
+  const history = buildPriceHistory(crop);
+  const trend = estimateTrend(history);
+  const arrivals = Number(best.item.arrivals || 0);
+  const forecasts = forecastPrices(best.modal, trend, arrivals);
+  const waitForecast = forecasts[0].value;
+  const waitGross = waitForecast * quantity / 100;
+  const waitNet = waitGross - transport - handling - storage - other;
+  const waitGain = Math.max(0, waitNet - best.net);
+  const recommendation = recommendationFromScores(waitGain, storage, best.net);
 
-          <span class="badge">
-            Explainable Rules
-          </span>
+  const maxPrice = Math.max(...ranked.map(x => x.modal));
+  const minPrice = Math.min(...ranked.map(x => x.modal));
+  const confidence = history.length >= 3 ? 'Medium' : history.length >= 2 ? 'Low–Medium' : 'Low';
+  const priceRange = maxPrice > minPrice ? `₹${minPrice.toLocaleString()} – ₹${maxPrice.toLocaleString()}` : `₹${best.modal.toLocaleString()}`;
 
-        </div>
-
-        <br>
-
-        <p>
-          <strong>Recommended Market:</strong>
-          ${escapeHTML(best.market)}
-        </p>
-
-        <p>
-          <strong>District:</strong>
-          ${escapeHTML(best.district)}
-        </p>
-
-        <p>
-          <strong>Estimated Modal Price:</strong>
-          ₹${best.modal.toLocaleString()} / Qtl
-        </p>
-
-        <p>
-          <strong>Estimated Gross Realization:</strong>
-          ₹${best.gross.toLocaleString()}
-        </p>
-
-        <p>
-          <strong>Transport Cost:</strong>
-          ₹${transport.toLocaleString()}
-        </p>
-
-        <p>
-          <strong>Estimated Net Realization:</strong>
-          ₹${best.net.toLocaleString()}
-        </p>
-
-        <br>
-
-        <p class="muted">
-          ${recommendation}
-        </p>
-
-        <br>
-
-        <p class="muted">
-          AI output is a decision-support recommendation,
-          not a guaranteed market price.
-        </p>
-
+  $("adviceResult").innerHTML = `
+    <div class="grid">
+      <div class="card">
+        <div class="muted">AI Decision</div>
+        <h2>${recommendation.icon} ${recommendation.action}</h2>
+        <p>${escapeHTML(recommendation.reason)}</p>
       </div>
 
-    `;
+      <div class="card">
+        <div class="muted">AI Market Score</div>
+        <h2>${best.score}/100</h2>
+        <p>${escapeHTML(best.item.market || 'Market')} · ${escapeHTML(best.item.district || '')}</p>
+      </div>
 
-  }
-);
+      <div class="card">
+        <div class="muted">Current Estimated Net</div>
+        <h2>₹${best.net.toLocaleString()}</h2>
+        <p>After all entered costs</p>
+      </div>
+    </div>
 
+    <div class="card">
+      <div class="row">
+        <h3>📈 Price Trend & Forecast</h3>
+        <span class="badge">${escapeHTML(trend.direction)}</span>
+      </div>
+      <p><strong>Current modal:</strong> ₹${best.modal.toLocaleString()} / Qtl</p>
+      <p><strong>Available market range:</strong> ${priceRange} / Qtl</p>
+      <p><strong>Trend change:</strong> ${trend.pct >= 0 ? '+' : ''}${trend.pct.toFixed(1)}%</p>
+      <div class="grid">
+        ${forecasts.map(f => `
+          <div class="card">
+            <div class="muted">${f.days}-Day Estimate</div>
+            <h3>₹${f.value.toLocaleString()} / Qtl</h3>
+          </div>`).join('')}
+      </div>
+      <p class="muted">Forecast confidence: ${confidence}. Estimates use the market records currently available in AGRONEXUS.</p>
+    </div>
+
+    <div class="card">
+      <h3>💰 Net Realization Breakdown</h3>
+      <p>Gross sale value: <strong>₹${best.gross.toLocaleString()}</strong></p>
+      <p>Transport: − ₹${transport.toLocaleString()}</p>
+      <p>Loading / unloading: − ₹${handling.toLocaleString()}</p>
+      <p>Storage: − ₹${storage.toLocaleString()}</p>
+      <p>Packaging / other: − ₹${other.toLocaleString()}</p>
+      <hr>
+      <h3>Estimated Net Realization: ₹${best.net.toLocaleString()}</h3>
+      <p class="muted">If the 7-day estimate is achieved, estimated net after entered costs would be ₹${waitNet.toLocaleString()}.</p>
+    </div>
+
+    <div class="card">
+      <h3>🏪 Market Comparison</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Market</th><th>District</th><th>Modal ₹/Qtl</th><th>Net ₹</th><th>Score</th></tr>
+          </thead>
+          <tbody>
+            ${ranked.slice(0, 5).map(x => `
+              <tr>
+                <td>${escapeHTML(x.item.market || 'Market')}</td>
+                <td>${escapeHTML(x.item.district || '')}</td>
+                <td>₹${x.modal.toLocaleString()}</td>
+                <td><strong>₹${x.net.toLocaleString()}</strong></td>
+                <td>${x.score}/100</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🧠 Why this recommendation?</h3>
+      <p>✓ Highest estimated net realization among available matching markets.</p>
+      <p>✓ Current price trend: <strong>${escapeHTML(trend.direction)}</strong>.</p>
+      <p>✓ Arrivals signal: <strong>${arrivals.toLocaleString()} Qtl</strong>.</p>
+      <p>✓ All entered logistics and handling costs are included.</p>
+      <p>✓ The recommendation is decision support, not a guaranteed price or profit.</p>
+    </div>
+  `;
+});
 
 /* =========================================================
    MODAL
