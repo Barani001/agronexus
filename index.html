@@ -1022,7 +1022,9 @@ import {
   remove
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-import { firebaseConfig } from './firebase-config.js?v=2';
+import {
+  firebaseConfig
+} from "./firebase-config.js";
 
 
 /* =========================================================
@@ -3041,12 +3043,8 @@ $("profileRole").addEventListener(
 
 /* =========================================================
    OPTIONAL SAMPLE DATA
+   Seed only after authentication (handled above).
 ========================================================= */
-
-setTimeout(
-  seedSampleMarkets,
-  2500
-);
 
 </script>
 
